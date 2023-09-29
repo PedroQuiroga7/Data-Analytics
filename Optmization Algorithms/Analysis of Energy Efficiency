@@ -1,1 +1,836 @@
 
+# iot queries 
+
+# Property ID 233
+
+
+sql_ambient_temperature = '''
+select 
+"Stratis Property ID",
+"Stratis Property Opaque ID",
+"Stratis Devicestatushistory Device ID",
+"Stratis Devicestatushistory Capability",
+"Stratis Devicestatushistory Timestamp Time",
+"Stratis Devicestatushistory Attribute",
+"Stratis Devicestatushistory Value",
+"Stratis Devicestatushistory Scale",
+"Stratis Devicestatushistory Type"
+from iot_stratis_device_status_history_all isdsha where "Stratis Devicestatushistory Capability" = 'Thermostat'
+and "Stratis Property ID" = 233 and "Stratis Devicestatushistory Attribute" in ('ambient_temperature')
+'''
+
+df_ambient_temperature = pd.read_sql(sql_ambient_temperature, conn)
+
+
+sql_setpoint = '''
+select 
+"Stratis Property ID",
+"Stratis Property Opaque ID",
+"Stratis Devicestatushistory Device ID",
+"Stratis Devicestatushistory Capability",
+"Stratis Devicestatushistory Timestamp Time",
+"Stratis Devicestatushistory Attribute",
+"Stratis Devicestatushistory Value",
+"Stratis Devicestatushistory Scale",
+"Stratis Devicestatushistory Type"
+from iot_stratis_device_status_history_all isdsha where "Stratis Devicestatushistory Capability" = 'Thermostat'
+and "Stratis Property ID" = 233 and "Stratis Devicestatushistory Attribute" in ('setpoint')
+'''
+
+df_setpoint = pd.read_sql(sql_setpoint, conn)
+
+
+
+sql_set_point_low = '''
+select 
+"Stratis Property ID",
+"Stratis Property Opaque ID",
+"Stratis Devicestatushistory Device ID",
+"Stratis Devicestatushistory Capability",
+"Stratis Devicestatushistory Timestamp Time",
+"Stratis Devicestatushistory Attribute",
+"Stratis Devicestatushistory Value",
+"Stratis Devicestatushistory Scale",
+"Stratis Devicestatushistory Type"
+from iot_stratis_device_status_history_all isdsha where "Stratis Devicestatushistory Capability" = 'Thermostat'
+and "Stratis Property ID" = 233 and "Stratis Devicestatushistory Attribute" in ('setpoint_low')
+'''
+
+df_set_point_low = pd.read_sql(sql_set_point_low, conn)
+
+
+sql_setpoint_high = '''
+select 
+"Stratis Property ID",
+"Stratis Property Opaque ID",
+"Stratis Devicestatushistory Device ID",
+"Stratis Devicestatushistory Capability",
+"Stratis Devicestatushistory Timestamp Time",
+"Stratis Devicestatushistory Attribute",
+"Stratis Devicestatushistory Value",
+"Stratis Devicestatushistory Scale",
+"Stratis Devicestatushistory Type"
+from iot_stratis_device_status_history_all isdsha where "Stratis Devicestatushistory Capability" = 'Thermostat'
+and "Stratis Property ID" = 233 and "Stratis Devicestatushistory Attribute" in ('setpoint_high')
+'''
+
+df_setpoint_high = pd.read_sql(sql_setpoint_high, conn)
+
+
+sql_hvac_runtime = '''
+select 
+"Stratis Property ID",
+"Stratis Property Opaque ID",
+"Stratis Devicestatushistory Device ID",
+"Stratis Devicestatushistory Capability",
+"Stratis Devicestatushistory Timestamp Time",
+"Stratis Devicestatushistory Attribute",
+"Stratis Devicestatushistory Value",
+"Stratis Devicestatushistory Scale",
+"Stratis Devicestatushistory Type"
+from iot_stratis_device_status_history_all isdsha where "Stratis Devicestatushistory Capability" = 'Thermostat'
+and "Stratis Property ID" = 233 and "Stratis Devicestatushistory Attribute" in ('hvac_runtime')
+'''
+
+df_hvac_runtime = pd.read_sql(sql_hvac_runtime, conn)
+
+
+sql_humidity = '''
+select 
+"Stratis Property ID",
+"Stratis Property Opaque ID",
+"Stratis Devicestatushistory Device ID",
+"Stratis Devicestatushistory Capability",
+"Stratis Devicestatushistory Timestamp Time",
+"Stratis Devicestatushistory Attribute",
+"Stratis Devicestatushistory Value",
+"Stratis Devicestatushistory Scale",
+"Stratis Devicestatushistory Type"
+from iot_stratis_device_status_history_all isdsha where "Stratis Devicestatushistory Capability" = 'Thermostat'
+and "Stratis Property ID" = 233 and "Stratis Devicestatushistory Attribute" in ('humidity')
+'''
+
+df_humidity = pd.read_sql(sql_humidity, conn)
+
+
+
+# Mapping from stratis to stations
+
+sql_stations = '''
+select isam.strat_propertyid, ipclm."STATION" from  iot_stratis_ao_mapping isam 
+left join iot_property_climate_location_mapping ipclm on ipclm.propertyid = isam.ao_propertyid
+where ipclm."STATION" is not null 
+'''
+
+df_stations = pd.read_sql(sql_stations, conn)
+
+
+# Climate data
+
+sql_climate = '''
+select "STATION", "DATE", "TEMP" from iot_climate
+'''
+
+df_climate = pd.read_sql(sql_climate, conn)
+
+
+# Mapping devices to units 
+
+sql_mapping_units = '''
+select * from iot_stratis_device isd  
+'''
+
+df_mapping_units = pd.read_sql(sql_mapping_units, conn)
+
+df_mapping_units = df_mapping_units[['Stratis Property Property Name','Stratis Property Opaque ID',
+                                     'Stratis Device Device Name','Stratis Device Device ID',
+                                     'Cloud Unit Unit Name','Cloud Unit Unit ID']]
+
+
+#%%
+
+
+
+df_amb_temp = df_ambient_temperature
+
+# Merge Station 
+
+df_amb_temp['Stratis Property Opaque ID'] = df_amb_temp['Stratis Property Opaque ID'].str.strip()
+
+
+df_amb_temp = df_amb_temp.merge(df_stations, how= 'left', left_on = 'Stratis Property Opaque ID', 
+                                                      right_on= 'strat_propertyid')
+
+
+df_amb_temp['Date'] = pd.to_datetime(df_amb_temp['Stratis Devicestatushistory Timestamp Time'], 
+                                          format='%Y-%m-%d %H:%M:%S.%f').dt.date
+
+df_amb_temp['Timestamp'] = pd.to_datetime(df_amb_temp['Stratis Devicestatushistory Timestamp Time'], 
+                                          format='%Y-%m-%d %H:%M:%S.%f')
+
+# Merge amb temperature per day 
+
+df_climate['DATE'] = pd.to_datetime(df_climate['DATE'], 
+                                          format='%Y-%m-%d').dt.date
+
+df_amb_temp = df_amb_temp.merge(df_climate, how='left', left_on=['STATION','Date'], right_on = ['STATION','DATE'])
+
+
+
+
+
+#%%
+
+# Temp analysis 
+
+
+df_amb_temp['Diff'] = df_amb_temp['Stratis Devicestatushistory Value'].astype('float') - df_amb_temp['TEMP']
+
+cols = df_amb_temp.columns 
+
+
+df_amb_temp2 = df_amb_temp.merge(df_mapping_units, how= 'left', left_on = 'Stratis Devicestatushistory Device ID', 
+                                                      right_on='Stratis Device Device ID')
+
+
+df_amb_temp2['Stratis Devicestatushistory Device ID'] = df_amb_temp2['Stratis Devicestatushistory Device ID'].astype('int64')
+
+#%%
+
+df_amb_temp2 = df_amb_temp2.dropna(subset=['Cloud Unit Unit ID'])
+
+df_amb_temp2['Cloud Unit Unit ID'] = df_amb_temp2['Cloud Unit Unit ID'].astype(int)
+
+df_amb_temp2 = df_amb_temp2[['Timestamp','Diff', 'Cloud Unit Unit ID']].set_index('Timestamp')
+
+units =set(df_amb_temp2['Cloud Unit Unit ID'])
+
+
+
+# plt.figure(figsize=(17, 8))
+
+# for unit in units: 
+    
+#     print(unit)
+  
+#     temp = df_amb_temp2[df_amb_temp2['Cloud Unit Unit ID']==unit]['Diff']
+
+#     temp = temp.resample('D').mean()    
+
+#     plt.plot(temp)
+
+    
+    
+# plt.title('Diff: Thermostat - External Temp (Warming mode)')    
+# plt.xlabel('DateTime')
+# plt.ylabel('Diff deg F')
+
+
+
+
+
+
+
+
+#%%
+
+# Energy consumption 
+
+## two attributes (energy consumption)
+
+sql_energy_consumption = '''
+select 
+"Stratis Property ID",
+"Stratis Property Opaque ID",
+"Stratis Devicestatushistory Device ID",
+"Stratis Devicestatushistory Capability",
+"Stratis Devicestatushistory Timestamp Time",
+"Stratis Devicestatushistory Attribute",
+"Stratis Devicestatushistory Value",
+"Stratis Devicestatushistory Scale",
+"Stratis Devicestatushistory Type"
+from iot_stratis_device_status_history_all isdsha where "Stratis Devicestatushistory Capability" = 'Energy Meter'
+and "Stratis Property ID" = 233 
+'''
+
+df_energy_consumption = pd.read_sql(sql_energy_consumption, conn)
+
+
+#%%
+
+
+
+
+
+df_energy_consumption['Date'] = pd.to_datetime(df_energy_consumption['Stratis Devicestatushistory Timestamp Time'], 
+                                          format='%Y-%m-%d %H:%M:%S.%f').dt.date
+
+df_energy_consumption['Timestamp'] = pd.to_datetime(df_energy_consumption['Stratis Devicestatushistory Timestamp Time'], 
+                                          format='%Y-%m-%d %H:%M:%S.%f')
+
+
+df_energy_consumption = df_energy_consumption.merge(df_mapping_units, how= 'left', left_on = 'Stratis Devicestatushistory Device ID', 
+                                                      right_on='Stratis Device Device ID')
+
+df_energy_consumption['Stratis Devicestatushistory Device ID'] = df_energy_consumption['Stratis Devicestatushistory Device ID'].astype('int64')
+
+
+df_energy_consumption = df_energy_consumption.dropna(subset=['Cloud Unit Unit ID'])
+
+
+df_energy_consumption['Cloud Unit Unit ID'] = df_energy_consumption['Cloud Unit Unit ID'].astype(int)
+
+df_energy_consumption['Value'] = df_energy_consumption['Stratis Devicestatushistory Value'].astype(float)
+
+df_energy_consumption['Stratis Devicestatushistory Attribute'] = df_energy_consumption['Stratis Devicestatushistory Attribute'].str.strip()
+
+
+df_consumption = df_energy_consumption[df_energy_consumption['Stratis Devicestatushistory Attribute']=='consumption']
+
+df_energy = df_energy_consumption[df_energy_consumption['Stratis Devicestatushistory Attribute']=='energy']
+
+
+
+df_energy = df_energy[['Timestamp','Value', 'Cloud Unit Unit ID']].set_index('Timestamp')
+
+df_consumption = df_consumption[['Timestamp','Value', 'Cloud Unit Unit ID']].set_index('Timestamp')
+
+
+units_energy =set(df_energy['Cloud Unit Unit ID'])
+
+units_consumption =set(df_consumption['Cloud Unit Unit ID'])
+
+
+#%%
+
+
+
+# plt.figure(figsize=(17, 8))
+
+
+# for unit in units_energy:
+  
+#     temp = df_energy[df_energy['Cloud Unit Unit ID']==unit]['Value']
+    
+#     temp = temp.resample('D').mean()    
+    
+#     plt.plot(temp)
+
+
+# plt.title('Energy Consumption -  Energy')    
+# plt.xlabel('DateTime')
+# plt.ylabel('Wh')
+
+
+#%%
+
+# plt.figure(figsize=(17, 8))
+
+
+# for unit in units_consumption:
+  
+#     temp = df_consumption[df_consumption['Cloud Unit Unit ID']==unit]['Value']
+    
+#     temp = temp.resample('D').mean()    
+    
+#     plt.plot(temp)
+
+
+# plt.title('Energy Consumption -  Consumption')    
+# plt.xlabel('DateTime')
+# plt.ylabel('Wh')
+
+
+#%%
+
+df_master = df_amb_temp.merge(df_mapping_units, how= 'left', left_on = 'Stratis Devicestatushistory Device ID', 
+                                                      right_on='Stratis Device Device ID')
+
+
+df_master['Stratis Devicestatushistory Device ID'] = df_master['Stratis Devicestatushistory Device ID'].astype('int64')
+
+df_master = df_master.dropna(subset=['Cloud Unit Unit ID'])
+
+df_master['Cloud Unit Unit ID'] = df_master['Cloud Unit Unit ID'].astype(int)
+
+
+df_master = df_master[['Timestamp','Stratis Devicestatushistory Value','TEMP','Diff', 'Cloud Unit Unit ID']]
+
+df_master['Stratis Devicestatushistory Value'] = df_master['Stratis Devicestatushistory Value'].astype(float)
+
+df_master.rename({'Stratis Devicestatushistory Value':'Therm Temp', 'TEMP':'External Temp'},axis=1, inplace= True)
+
+#%%
+
+
+
+df_master['date'] = df_master['Timestamp'].dt.date
+
+df_master = df_master.drop('Timestamp', axis=1)
+
+df_master = df_master.groupby(['date', 'Cloud Unit Unit ID']).mean().reset_index()
+
+
+#%%
+
+
+# Cumulative value attr =  energy 
+
+df_energy2 = df_energy.reset_index()
+
+df_energy2['date'] = df_energy2['Timestamp'].dt.date
+
+df_energy2 = df_energy2.drop('Timestamp', axis=1)
+
+df_energy2 = df_energy2.groupby(['date', 'Cloud Unit Unit ID']).max().reset_index()
+
+
+
+#%%
+
+df_consumption2 = df_consumption.reset_index()
+
+df_consumption2['date'] = df_consumption2['Timestamp'].dt.date
+
+df_consumption2 = df_consumption2.drop('Timestamp', axis=1)
+
+df_consumption2 = df_consumption2.groupby(['date', 'Cloud Unit Unit ID']).mean().reset_index()
+
+
+#%%
+
+
+
+
+df_master2 = df_master.merge(df_energy2, how= 'left', on =['date', 'Cloud Unit Unit ID'])
+
+df_master2 = df_master2.merge(df_consumption2, how= 'left', on =['date', 'Cloud Unit Unit ID'])
+
+
+df_master2 = df_master2[df_master2['Cloud Unit Unit ID'].isin(units_energy)]
+
+#%%
+
+df_master2.rename({'Value_x':'Aggregate Consumption','Value_y':'Consumption'},axis=1, inplace= True)
+
+
+#%%
+
+# unit attributes 
+
+sql_unit_att = '''
+select "PropertyID" , "UnitNumber","SquareFootage","Bedrooms","Bathrooms","UnitStatusID" 
+FROM iot_ys_units iyu where "PropertyID" = 243839
+'''
+
+df_unit_att = pd.read_sql(sql_unit_att, conn)
+
+
+
+#%%
+
+df_mapping_units2 = df_mapping_units[df_mapping_units['Stratis Property Opaque ID']=='p-4x0cpx']
+
+df_mapping_units2 = df_mapping_units2[['Cloud Unit Unit Name', 'Cloud Unit Unit ID']].drop_duplicates()
+
+
+df_master2 = df_master2.merge(df_mapping_units2[['Cloud Unit Unit ID','Cloud Unit Unit Name']], how= 'left', on = 'Cloud Unit Unit ID')
+
+df_master2 = df_master2.merge(df_unit_att, how = 'left', left_on = 'Cloud Unit Unit Name', right_on= 'UnitNumber')
+
+df_master2['consumption_sqft'] = df_master2['Consumption'] / df_master2['SquareFootage']
+
+df_master2['log_consumption_sqft'] = np.log(df_master2['Consumption'] / df_master2['SquareFootage'])
+
+df_master2['log_consumption'] = np.log(df_master2['Consumption'])
+
+from sklearn.preprocessing import MinMaxScaler
+scaler = MinMaxScaler()
+columns_to_scale = ['Diff', 'External Temp', 'Consumption', 'SquareFootage', 'Bedrooms', 'Bathrooms', 'consumption_sqft', 'log_consumption','log_consumption_sqft']
+df_master2_scaled = pd.DataFrame(scaler.fit_transform(df_master2[columns_to_scale]), columns=columns_to_scale)
+df_master2_scaled['diff_inverse'] = 1 - df_master2_scaled['Diff']
+df_master2_scaled['consumption_inverse'] = 1 - df_master2_scaled['Consumption']
+df_master2_scaled['log_consumption_inverse'] = 1 - df_master2_scaled['log_consumption']
+df_master2_scaled['consumption_sqft_inverse'] = 1 - df_master2_scaled['consumption_sqft']
+df_master2_scaled['log_consumption_sqft_inverse'] = 1 - df_master2_scaled['log_consumption_sqft']
+df_master2_scaled = pd.concat([df_master2_scaled, df_master2[['date', 'Cloud Unit Unit ID']]], axis=1)
+
+df_master2_scaled = df_master2_scaled.replace(0, 0.0001)
+
+
+df_master2.to_csv('dea_data.csv')
+
+#%%
+
+df = df_master2[['Consumption','SquareFootage', 'date', 'Cloud Unit Unit ID']].dropna()
+
+# df.groupby('Cloud Unit Unit ID').mean(['Consumption','SquareFootage']).reset_index()
+
+test = df.groupby('Cloud Unit Unit ID').mean(['Consumption','SquareFootage']).reset_index()
+
+
+from sklearn.linear_model import LinearRegression
+
+x = np.array(test['SquareFootage'])
+x = x.reshape(-1,1)
+
+y =  np.array(np.log(test['Consumption']))
+y = y.reshape(-1,1)
+
+
+model = LinearRegression()
+model.fit(x, y)
+
+score = model.score(x,y)
+
+m= model.coef_
+
+b= model.intercept_
+
+y_pred = model.predict(x)
+
+
+plt.scatter(test['SquareFootage'], y)
+plt.xticks(rotation=90)
+plt.title('consumption vs area')
+plt.ylabel('Consumption')
+
+plt.plot(x, y_pred,color='red')
+
+plt.show() 
+
+#%%
+
+"""
+Data Envelopment Analysis implementation
+Sources:
+Sherman & Zhu (2006) Service Productivity Management, Improving Service Performance using Data Envelopment Analysis (DEA) [Chapter 2]
+ISBN: 978-0-387-33211-6
+http://deazone.com/en/resources/tutorial
+"""
+
+import numpy as np
+from scipy.optimize import fmin_slsqp
+
+
+class DEA(object):
+
+    def __init__(self, inputs, outputs):
+        """
+        Initialize the DEA object with input data
+        n = number of entities (observations)
+        m = number of inputs (variables, features)
+        r = number of outputs
+        :param inputs: inputs, n x m numpy array
+        :param outputs: outputs, n x r numpy array
+        :return: self
+        """
+
+        # supplied data
+        self.inputs = inputs
+        self.outputs = outputs
+
+        # parameters
+        self.n = inputs.shape[0]
+        self.m = inputs.shape[1]
+        self.r = outputs.shape[1]
+
+        # iterators
+        self.unit_ = range(self.n)
+        self.input_ = range(self.m)
+        self.output_ = range(self.r)
+
+        # result arrays
+        self.output_w = np.zeros((self.r, 1), dtype=np.float)  # output weights
+        self.input_w = np.zeros((self.m, 1), dtype=np.float)  # input weights
+        self.lambdas = np.zeros((self.n, 1), dtype=np.float)  # unit efficiencies
+        self.efficiency = np.zeros_like(self.lambdas)  # thetas
+
+        # names
+        self.names = []
+
+    def __efficiency(self, unit):
+        """
+        Efficiency function with already computed weights
+        :param unit: which unit to compute for
+        :return: efficiency
+        """
+
+        # compute efficiency
+        denominator = np.dot(self.inputs, self.input_w)
+        numerator = np.dot(self.outputs, self.output_w)
+
+        return (numerator/denominator)[unit]
+
+    def __target(self, x, unit):
+        """
+        Theta target function for one unit
+        :param x: combined weights
+        :param unit: which production unit to compute
+        :return: theta
+        """
+        in_w, out_w, lambdas = x[:self.m], x[self.m:(self.m+self.r)], x[(self.m+self.r):]  # unroll the weights
+        denominator = np.dot(self.inputs[unit], in_w)
+        numerator = np.dot(self.outputs[unit], out_w)
+
+        return numerator/denominator
+
+    def __constraints(self, x, unit):
+        """
+        Constraints for optimization for one unit
+        :param x: combined weights
+        :param unit: which production unit to compute
+        :return: array of constraints
+        """
+
+        in_w, out_w, lambdas = x[:self.m], x[self.m:(self.m+self.r)], x[(self.m+self.r):]  # unroll the weights
+        constr = []  # init the constraint array
+
+        # for each input, lambdas with inputs
+        for input in self.input_:
+            t = self.__target(x, unit)
+            lhs = np.dot(self.inputs[:, input], lambdas)
+            cons = t*self.inputs[unit, input] - lhs
+            constr.append(cons)
+
+        # for each output, lambdas with outputs
+        for output in self.output_:
+            lhs = np.dot(self.outputs[:, output], lambdas)
+            cons = lhs - self.outputs[unit, output]
+            constr.append(cons)
+
+        # for each unit
+        for u in self.unit_:
+            constr.append(lambdas[u])
+
+        return np.array(constr)
+
+    def __optimize(self):
+        """
+        Optimization of the DEA model
+        Use: http://docs.scipy.org/doc/scipy-0.17.0/reference/generated/scipy.optimize.linprog.html
+        A = coefficients in the constraints
+        b = rhs of constraints
+        c = coefficients of the target function
+        :return:
+        """
+        d0 = self.m + self.r + self.n
+        # iterate over units
+        for unit in self.unit_:
+            # weights
+            x0 = np.random.rand(d0) - 0.5
+            x0 = fmin_slsqp(self.__target, x0, f_ieqcons=self.__constraints, args=(unit,))
+            # unroll weights
+            self.input_w, self.output_w, self.lambdas = x0[:self.m], x0[self.m:(self.m+self.r)], x0[(self.m+self.r):]
+            self.efficiency[unit] = self.__efficiency(unit)
+
+    def name_units(self, names):
+        """
+        Provide names for units for presentation purposes
+        :param names: a list of names, equal in length to the number of units
+        :return: nothing
+        """
+
+        assert(self.n == len(names))
+
+        self.names = names
+
+    def fit(self):
+        """
+        Optimize the dataset, generate basic table
+        :return: table
+        """
+        
+        summary=[]
+        
+        self.__optimize()  # optimize
+
+        print("Final thetas for each unit:\n")
+        print("---------------------------\n")
+        for n, eff in enumerate(self.efficiency):
+            if len(self.names) > 0:
+                name = "Unit %s" % self.names[n]
+            else:
+                name = "Unit %d" % (n+1)
+            print("%s theta: %.4f" % (name, eff))
+            print("\n")
+            
+            summary.append(np.array([name,eff]))
+            
+        print("---------------------------\n")
+        
+        return summary 
+
+
+if __name__ == "__main__":
+
+
+    days = sorted(set(df_master2['date']))
+    
+    
+    DEA_results = {'day': [], 'results': []}
+    
+    for day in days: 
+        
+        print(day)
+        
+        temp = df_master2_scaled[df_master2_scaled['date']==day]
+        
+        #temp2 = df_master2[df_master2['date']==day]
+               
+        X = np.array(temp[['External Temp','SquareFootage', 'Bedrooms', 'Bathrooms']])
+        
+        y = np.array(temp[['log_consumption_inverse']])
+        
+        names = np.array((temp['Cloud Unit Unit ID']))  
+        
+        
+        dea = DEA(X,y)
+        dea.name_units(names)
+        
+        summary = dea.fit()
+        summary = pd.DataFrame(summary)
+        summary.columns = ['Unit', 'Eff']
+        summary['Eff'] = summary['Eff'].str[0]
+        summary['Eff'][summary['Eff'] > 1] = 1
+        summary['Eff'][summary['Eff'] < 0] = 0
+        
+        DEA_results['day'].append(day)
+        DEA_results['results'].append(summary)
+        
+import statistics
+import datetime
+        
+DEA_results_aggregate_diff_input = pd.DataFrame()
+for i in DEA_results['results']:
+    if DEA_results_aggregate_diff_input.empty == True:
+        DEA_results_aggregate_diff_input = i
+    else:
+        DEA_results_aggregate_diff_input = pd.merge(DEA_results_aggregate_diff_input, i, how='left', on='Unit')
+        
+DEA_results_aggregate_diff_input['median'] = [[e for e in row if e==e] for row in DEA_results_aggregate_diff_input.values.tolist()]
+DEA_results_aggregate_diff_input['median_calc'] = DEA_results_aggregate_diff_input['median'].apply(lambda x: statistics.median(x[1:]))
+DEA_results_aggregate_diff_input['mean_calc'] = DEA_results_aggregate_diff_input['median'].apply(lambda x: statistics.mean(x[1:]))
+
+DEA_results_aggregate = pd.DataFrame()
+for i in DEA_results['results']:
+    if DEA_results_aggregate.empty == True:
+        DEA_results_aggregate = i
+    else:
+        DEA_results_aggregate = pd.merge(DEA_results_aggregate, i, how='left', on='Unit')
+        
+DEA_results_aggregate['median'] = [[e for e in row if e==e] for row in DEA_results_aggregate.values.tolist()]
+DEA_results_aggregate['median_calc'] = DEA_results_aggregate['median'].apply(lambda x: statistics.median(x[1:]))
+DEA_results_aggregate['mean_calc'] = DEA_results_aggregate['median'].apply(lambda x: statistics.mean(x[1:]))
+
+        
+DEA_results_aggregate_temp = pd.DataFrame()
+for i in DEA_results['results']:
+    if DEA_results_aggregate_temp.empty == True:
+        DEA_results_aggregate_temp = i
+    else:
+        DEA_results_aggregate_temp = pd.merge(DEA_results_aggregate_temp, i, how='left', on='Unit')
+   
+DEA_results_aggregate_temp['median'] = [[e for e in row if e==e] for row in DEA_results_aggregate_temp.values.tolist()]
+DEA_results_aggregate_temp['median_calc'] = DEA_results_aggregate_temp['median'].apply(lambda x: statistics.median(x[1:]))
+DEA_results_aggregate_temp['mean_calc'] = DEA_results_aggregate_temp['median'].apply(lambda x: statistics.mean(x[1:]))
+
+DEA_results_compare = pd.merge(DEA_results_aggregate[['Unit', 'median_calc', 'mean_calc']], DEA_results_aggregate_temp[['Unit', 'median_calc', 'mean_calc']], how='left', on='Unit')
+DEA_results_compare = pd.merge(DEA_results_compare, DEA_results_aggregate_diff_input[['Unit', 'median_calc', 'mean_calc']], how='left', on='Unit')
+DEA_results_compare.columns = ['Unit', 'consuption_median', 'consumption_mean', 'temp_median', 'temp_mean', 'consuption_w_diff_median', 'consuption_w_diff_mean']
+DEA_results_compare['Unit'] = DEA_results_compare['Unit'].str.replace('Unit ', '')
+DEA_results_compare['Unit'] = DEA_results_compare['Unit'].astype(int)
+
+df_master2_compare = df_master2[['Cloud Unit Unit ID', 'Bedrooms', 'Bathrooms', 'SquareFootage', 'Diff']].groupby(['Cloud Unit Unit ID', 'Bedrooms', 'Bathrooms', 'SquareFootage']).mean().reset_index()
+DEA_results_compare = pd.merge(DEA_results_compare, df_master2_compare, how='left', left_on='Unit', right_on='Cloud Unit Unit ID')
+
+df_master2_test = df_master2[df_master2['Cloud Unit Unit ID'] == 412346]
+df_master2_test_date = df_master2[df_master2['date'] == datetime.date(2022,2,15)]
+
+#%%
+
+
+df_dea_analysis = df_master2.dropna()
+
+test = pd.DataFrame([])
+
+for i in range(len(DEA_results['results'])):
+    
+    test2 = DEA_results['results'][i] 
+    
+    test2['day'] = DEA_results['day'][i] 
+    
+    test = pd.concat([test,test2])
+
+test = test.dropna()
+
+test['Unit'] = test['Unit'].str.strip('Unit ').astype('int64')
+
+df_dea_analysis2 = pd.merge(df_dea_analysis,test, how='left', left_on =['date','Cloud Unit Unit ID'], right_on =['day','Unit'] )
+
+
+#%%
+
+
+
+
+days = sorted(set(df_dea_analysis2['date']))
+    
+for day in days: 
+            
+    temp = df_dea_analysis2[df_dea_analysis2['date']==day]
+               
+    x = temp['SquareFootage'].tolist()
+        
+    y = temp['Consumption'].tolist()
+        
+    eff = round(temp['Eff'],2).tolist()  
+        
+    fig, ax = plt.subplots(figsize=(10, 7))
+    
+    ax.scatter(x, y)
+    
+    ax.set_ylim(-200, 40000)
+    
+    ax.set_title(day)
+    
+    for i, txt in enumerate(eff):
+        ax.annotate(txt, (x[i], y[i]))
+    
+
+ 
+#%%
+
+# Analysis only amb temp as output  
+
+# for i in range(50):
+    
+#     day = DEA_results['day'][i]
+    
+#     temp = DEA_results['results'][i]
+    
+#     temp.sort_values(by=['Unit'], inplace= True)  
+    
+#     temp['Eff'] = temp['Eff'].astype(float)  
+    
+    
+#     plt.scatter(temp['Unit'], temp['Eff'])
+    
+#     plt.xticks(rotation=90)
+    
+#     plt.title('Output: Amb Temp Setting - date:{}'.format(day))
+    
+#     plt.ylabel('Eff')
+    
+#     plt.show() 
+    
+#%%
+
+
+    
+    
+    
+      
+        
+        #%%
+    
